@@ -16,18 +16,18 @@ from haystack_elasticsearch.elasticsearch import ElasticsearchSearchBackend, Ela
 
 try:
     import elasticsearch
-    if not ((5, 0, 0) <= elasticsearch.__version__ < (6, 0, 0)):
+    if not ((6, 0, 0) <= elasticsearch.__version__ < (7, 0, 0)):
         raise ImportError
     from elasticsearch.helpers import bulk, scan
 except ImportError:
-    raise MissingDependency("The 'elasticsearch5' backend requires the \
-                            installation of 'elasticsearch>=5.0.0,<6.0.0'. \
+    raise MissingDependency("The 'elasticsearch6' backend requires the \
+                            installation of 'elasticsearch>=6.0.0,<7.0.0'. \
                             Please refer to the documentation.")
 
 
-class Elasticsearch5SearchBackend(ElasticsearchSearchBackend):
+class Elasticsearch6SearchBackend(ElasticsearchSearchBackend):
     def __init__(self, connection_alias, **connection_options):
-        super(Elasticsearch5SearchBackend, self).__init__(connection_alias, **connection_options)
+        super(Elasticsearch6SearchBackend, self).__init__(connection_alias, **connection_options)
         self.content_field_name = None
 
     def clear(self, models=None, commit=True):
@@ -300,7 +300,7 @@ class Elasticsearch5SearchBackend(ElasticsearchSearchBackend):
     def _process_results(self, raw_results, highlight=False,
                          result_class=None, distance_point=None,
                          geo_sort=False):
-        results = super(Elasticsearch5SearchBackend, self)._process_results(raw_results, highlight,
+        results = super(Elasticsearch6SearchBackend, self)._process_results(raw_results, highlight,
                                                                             result_class, distance_point,
                                                                             geo_sort)
         facets = {}
@@ -329,13 +329,13 @@ class Elasticsearch5SearchBackend(ElasticsearchSearchBackend):
         return results
 
 
-class Elasticsearch5SearchQuery(ElasticsearchSearchQuery):
+class Elasticsearch6SearchQuery(ElasticsearchSearchQuery):
     def add_field_facet(self, field, **options):
         """Adds a regular facet on a field."""
         # to be renamed to the facet fieldname by build_search_kwargs later
         self.facets[field] = options.copy()
 
 
-class Elasticsearch5SearchEngine(BaseEngine):
-    backend = Elasticsearch5SearchBackend
-    query = Elasticsearch5SearchQuery
+class Elasticsearch6SearchEngine(BaseEngine):
+    backend = Elasticsearch6SearchBackend
+    query = Elasticsearch6SearchQuery
