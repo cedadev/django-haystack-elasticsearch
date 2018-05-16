@@ -2,29 +2,32 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
+import warnings
 
+import haystack
 from django.conf import settings
 from haystack.backends import BaseEngine
-from haystack.constants import DJANGO_CT
+from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT
 from haystack.exceptions import MissingDependency
 from haystack.utils import get_identifier, get_model_ct
 
+from haystack_elasticsearch.constants import FUZZINESS
 from haystack_elasticsearch.elasticsearch import ElasticsearchSearchBackend, ElasticsearchSearchQuery
 
 try:
     import elasticsearch
-    if not ((2, 0, 0) <= elasticsearch.__version__ < (3, 0, 0)):
+    if not ((6, 0, 0) <= elasticsearch.__version__ < (7, 0, 0)):
         raise ImportError
     from elasticsearch.helpers import bulk, scan
 except ImportError:
-    raise MissingDependency("The 'elasticsearch2' backend requires the \
-                            installation of 'elasticsearch>=2.0.0,<3.0.0'. \
+    raise MissingDependency("The 'elasticsearch6' backend requires the \
+                            installation of 'elasticsearch>=6.0.0,<7.0.0'. \
                             Please refer to the documentation.")
 
 
-class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
+class Elasticsearch6SearchBackend(ElasticsearchSearchBackend):
     def __init__(self, connection_alias, **connection_options):
-        super(Elasticsearch2SearchBackend, self).__init__(connection_alias, **connection_options)
+        super(Elasticsearch6SearchBackend, self).__init__(connection_alias, **connection_options)
         self.content_field_name = None
 
     def clear(self, models=None, commit=True):
@@ -69,17 +72,57 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
             else:
                 self.log.error("Failed to clear Elasticsearch index: %s", e, exc_info=True)
 
-    def _build_search_kwargs_facets(self, facets, date_facets, query_facets):
+    def _build_search_kwargs_default(self, content_field, query_string):
+        if query_string == '*:*':
+            return {
+                'query': {
+                    "match_all": {}
+                },
+            }
+        else:
+            return {
+                'query': {
+                    'query_string': {
+                        'default_field': content_field,
+                        'default_operator': DEFAULT_OPERATOR,
+                        'query': query_string,
+                        'analyze_wildcard': True,
+                        'auto_generate_phrase_queries': True,
+                        'fuzziness': FUZZINESS,
+                    },
+                },
+            }
+
+    def _build_search_kwargs_fields(self, fields):
+        if fields:
+            if isinstance(fields, (list, set)):
+                fields = " ".join(fields)
+
+        return 'stored_fields', fields
+
+    def _build_search_kwargs_highlight(self, content_field, highlight):
+        result = {
+            'fields': {
+                content_field: {},
+            }
+        }
+        if isinstance(highlight, dict):
+            result.update(highlight)
+        return result
+
+    def _build_search_kwargs_facets(self, facets, date_facets,query_facets):
         result = {}
 
         if facets is not None:
+            index = haystack.connections[self.connection_alias]\
+                .get_unified_index()
             for facet_fieldname, extra_options in facets.items():
                 facet_options = {
                     'meta': {
                         '_type': 'terms',
                     },
                     'terms': {
-                        'field': facet_fieldname,
+                        'field': index.get_facet_fieldname(facet_fieldname),
                     }
                 }
                 if 'order' in extra_options:
@@ -101,8 +144,7 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
                 interval = value.get('gap_by').lower()
 
                 # Need to detect on amount (can't be applied on months or years).
-                if value.get('gap_amount', 1) != 1 and \
-                        interval not in ('month', 'year'):
+                if value.get('gap_amount', 1) != 1 and interval not in ('month', 'year'):
                     # Just the first character is valid for use.
                     interval = "%s%s" % (value['gap_amount'], interval[:1])
 
@@ -153,6 +195,15 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
             }
         }
 
+    def _build_search_kwargs_query(self, filters, query):
+        if filters:
+            result = {"bool": {"must": query}}
+            if len(filters) == 1:
+                result['bool']["filter"] = filters[0]
+            else:
+                result['bool']["filter"] = {"bool": {"must": filters}}
+        return result
+
     def more_like_this(self, model_instance, additional_query_string=None,
                        start_offset=0, end_offset=None, models=None,
                        limit_to_registered_models=None, result_class=None, **kwargs):
@@ -195,10 +246,8 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
 
             if additional_query_string and additional_query_string != '*:*':
                 additional_filter = {
-                    "query": {
-                        "query_string": {
-                            "query": additional_query_string
-                        }
+                    "query_string": {
+                        "query": additional_query_string
                     }
                 }
                 narrow_queries.append(additional_filter)
@@ -222,8 +271,8 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
             if len(narrow_queries) > 0:
                 mlt_query = {
                     "query": {
-                        "filtered": {
-                            'query': mlt_query['query'],
+                        "bool": {
+                            'must': mlt_query['query'],
                             'filter': {
                                 'bool': {
                                     'must': list(narrow_queries)
@@ -251,7 +300,7 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
     def _process_results(self, raw_results, highlight=False,
                          result_class=None, distance_point=None,
                          geo_sort=False):
-        results = super(Elasticsearch2SearchBackend, self)._process_results(raw_results, highlight,
+        results = super(Elasticsearch6SearchBackend, self)._process_results(raw_results, highlight,
                                                                             result_class, distance_point,
                                                                             geo_sort)
         facets = {}
@@ -280,10 +329,13 @@ class Elasticsearch2SearchBackend(ElasticsearchSearchBackend):
         return results
 
 
-class Elasticsearch2SearchQuery(ElasticsearchSearchQuery):
-    pass
+class Elasticsearch6SearchQuery(ElasticsearchSearchQuery):
+    def add_field_facet(self, field, **options):
+        """Adds a regular facet on a field."""
+        # to be renamed to the facet fieldname by build_search_kwargs later
+        self.facets[field] = options.copy()
 
 
-class Elasticsearch2SearchEngine(BaseEngine):
-    backend = Elasticsearch2SearchBackend
-    query = Elasticsearch2SearchQuery
+class Elasticsearch6SearchEngine(BaseEngine):
+    backend = Elasticsearch6SearchBackend
+    query = Elasticsearch6SearchQuery
