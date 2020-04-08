@@ -7,21 +7,13 @@ import haystack
 from django.conf import settings
 from haystack.backends import BaseEngine
 from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT
-from haystack.exceptions import MissingDependency
 from haystack.utils import get_identifier, get_model_ct
 
 from haystack_elasticsearch.constants import FUZZINESS
 from haystack_elasticsearch.elasticsearch import ElasticsearchSearchBackend, ElasticsearchSearchQuery
 
-try:
-    import elasticsearch
-    if not ((6, 0, 0) <= elasticsearch.__version__ < (7, 0, 0)):
-        raise ImportError
-    from elasticsearch.helpers import bulk, scan
-except ImportError:
-    raise MissingDependency("The 'elasticsearch6' backend requires the \
-                            installation of 'elasticsearch>=6.0.0,<7.0.0'. \
-                            Please refer to the documentation.")
+import elasticsearch
+from elasticsearch.helpers import bulk, scan
 
 
 class Elasticsearch6SearchBackend(ElasticsearchSearchBackend):
