@@ -24,7 +24,7 @@ test_requirements = [
 
 setup(
     name='django-haystack-elasticsearch',
-    version='0.1.0',
+    version='1.0.0',
     description="A set of backends for using Elasticsearch on Haystack.",
     long_description=readme + '\n\n' + history,
     author="Bruno Marques",
@@ -45,8 +45,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',

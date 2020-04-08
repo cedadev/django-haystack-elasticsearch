@@ -152,7 +152,7 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
                 body=mlt_query,
                 index=self.index_name,
                 _source=True, **params)
-            
+
         except elasticsearch.TransportError as e:
             if not self.silently_fail:
                 raise
@@ -165,6 +165,7 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
 
 
 class Elasticsearch7SearchQuery(Elasticsearch6SearchQuery):
+    pass
 
 
 class Elasticsearch7SearchEngine(BaseEngine):
