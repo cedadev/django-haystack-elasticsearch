@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
-import warnings
 
 import haystack
 from django.conf import settings
