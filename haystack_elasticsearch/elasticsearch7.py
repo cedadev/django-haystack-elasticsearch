@@ -6,6 +6,7 @@ from haystack.backends import BaseEngine
 from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT
 from haystack.exceptions import MissingDependency
 from haystack.utils import get_identifier, get_model_ct
+from ceda_elasticsearch_tools.elasticsearch import CEDAElasticsearchClient
 
 from haystack_elasticsearch.elasticsearch6 import Elasticsearch6SearchBackend, Elasticsearch6SearchQuery
 
@@ -23,6 +24,13 @@ except ImportError:
 
 
 class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
+
+    def __init__(self, connection_alias, **connection_options):
+        super().__init__(connection_alias, **connection_options)
+        
+        # Modify the connetion to use the CEDA client which handles certificates
+        self.conn = CEDAElasticsearchClient(connection_options['URL'], timeout=self.timeout,
+                                                **connection_options.get('KWARGS', {}))
 
     def clear(self, models=None, commit=True):
         """
