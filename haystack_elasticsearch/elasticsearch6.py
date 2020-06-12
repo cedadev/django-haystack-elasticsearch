@@ -78,7 +78,7 @@ class Elasticsearch6SearchBackend(ElasticsearchSearchBackend):
                         'default_operator': DEFAULT_OPERATOR,
                         'query': query_string,
                         'analyze_wildcard': True,
-                        'auto_generate_phrase_queries': True,
+                        'type': 'phrase',
                         'fuzziness': FUZZINESS,
                     },
                 },

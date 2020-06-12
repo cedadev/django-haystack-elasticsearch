@@ -3,10 +3,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from django.conf import settings
 from haystack.backends import BaseEngine
-from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT
-from haystack.exceptions import MissingDependency
+from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT, DJANGO_ID, ID
+from haystack.exceptions import MissingDependency, SkipDocument
 from haystack.utils import get_identifier, get_model_ct
 from ceda_elasticsearch_tools.elasticsearch import CEDAElasticsearchClient
+import haystack
+from elasticsearch.exceptions import NotFoundError
+from haystack.backends import log_query
+from haystack.models import SearchResult
 
 from haystack_elasticsearch.elasticsearch6 import Elasticsearch6SearchBackend, Elasticsearch6SearchQuery
 
@@ -27,10 +31,110 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
 
     def __init__(self, connection_alias, **connection_options):
         super().__init__(connection_alias, **connection_options)
-        
         # Modify the connetion to use the CEDA client which handles certificates
-        self.conn = CEDAElasticsearchClient(connection_options['URL'], timeout=self.timeout,
+        self.conn = CEDAElasticsearchClient(timeout=self.timeout,
                                                 **connection_options.get('KWARGS', {}))
+
+    def setup(self):
+        """
+        Defers loading until needed.
+        """
+        # Get the existing mapping & cache it. We'll compare it
+        # during the ``update`` & if it doesn't match, we'll put the new
+        # mapping.
+        try:
+            self.existing_mapping = self.conn.indices.get_mapping(index=self.index_name)
+        except NotFoundError:
+            pass
+        except Exception:
+            if not self.silently_fail:
+                raise
+
+        unified_index = haystack.connections[self.connection_alias].get_unified_index()
+        self.content_field_name, field_mapping = self.build_schema(unified_index.all_searchfields())
+
+        current_mapping = {
+                'properties': field_mapping,
+        }
+
+        if current_mapping != self.existing_mapping:
+            try:
+                # Make sure the index is there first.
+                self.conn.indices.create(index=self.index_name, body=self.DEFAULT_SETTINGS, ignore=400)
+                self.conn.indices.put_mapping(index=self.index_name, body=current_mapping)
+                self.existing_mapping = current_mapping
+            except Exception:
+                if not self.silently_fail:
+                    raise
+
+        self.setup_complete = True
+
+    def update(self, index, iterable, commit=True):
+        if not self.setup_complete:
+            try:
+                self.setup()
+            except elasticsearch.TransportError as e:
+                if not self.silently_fail:
+                    raise
+
+                self.log.error("Failed to add documents to Elasticsearch: %s", e, exc_info=True)
+                return
+
+        prepped_docs = []
+
+        for obj in iterable:
+            try:
+                prepped_data = index.full_prepare(obj)
+                final_data = {}
+
+                # Convert the data to make sure it's happy.
+                for key, value in prepped_data.items():
+                    final_data[key] = self._from_python(value)
+                final_data['_id'] = final_data[ID]
+
+                prepped_docs.append(final_data)
+            except SkipDocument:
+                self.log.debug(u"Indexing for object `%s` skipped", obj)
+            except elasticsearch.TransportError as e:
+                if not self.silently_fail:
+                    raise
+
+                # We'll log the object identifier but won't include the actual object
+                # to avoid the possibility of that generating encoding errors while
+                # processing the log message:
+                self.log.error(u"%s while preparing object for update" % e.__class__.__name__, exc_info=True,
+                               extra={"data": {"index": index,
+                                               "object": get_identifier(obj)}})
+
+        bulk(self.conn, prepped_docs, index=self.index_name)
+
+        if commit:
+            self.conn.indices.refresh(index=self.index_name)
+
+    def remove(self, obj_or_string, commit=True):
+        doc_id = get_identifier(obj_or_string)
+
+        if not self.setup_complete:
+            try:
+                self.setup()
+            except elasticsearch.TransportError as e:
+                if not self.silently_fail:
+                    raise
+
+                self.log.error("Failed to remove document '%s' from Elasticsearch: %s", doc_id, e,
+                               exc_info=True)
+                return
+
+        try:
+            self.conn.delete(index=self.index_name, id=doc_id, ignore=404)
+
+            if commit:
+                self.conn.indices.refresh(index=self.index_name)
+        except elasticsearch.TransportError as e:
+            if not self.silently_fail:
+                raise
+
+            self.log.error("Failed to remove document '%s' from Elasticsearch: %s", doc_id, e, exc_info=True)
 
     def clear(self, models=None, commit=True):
         """
@@ -171,6 +275,59 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
 
         return self._process_results(raw_results, result_class=result_class)
 
+    @log_query
+    def search(self, query_string, **kwargs):
+        if len(query_string) == 0:
+            return {
+                'results': [],
+                'hits': 0,
+            }
+
+        if not self.setup_complete:
+            self.setup()
+
+        search_kwargs = self.build_search_kwargs(query_string, **kwargs)
+        search_kwargs['from'] = kwargs.get('start_offset', 0)
+
+        order_fields = set()
+        for order in search_kwargs.get('sort', []):
+            for key in order.keys():
+                order_fields.add(key)
+
+        geo_sort = '_geo_distance' in order_fields
+
+        end_offset = kwargs.get('end_offset')
+        start_offset = kwargs.get('start_offset', 0)
+        if end_offset is not None and end_offset > start_offset:
+            search_kwargs['size'] = end_offset - start_offset
+
+        try:
+            raw_results = self.conn.search(body=search_kwargs,
+                                           index=self.index_name)
+        except elasticsearch.TransportError as e:
+            if not self.silently_fail:
+                raise
+
+            self.log.error("Failed to query Elasticsearch using '%s': %s", query_string, e, exc_info=True)
+            raw_results = {}
+
+        return self._process_results(raw_results,
+                                     highlight=kwargs.get('highlight'),
+                                     result_class=kwargs.get('result_class', SearchResult),
+                                     distance_point=kwargs.get('distance_point'),
+                                     geo_sort=geo_sort)
+
+    def _process_results(self, raw_results, highlight=False,
+                         result_class=None, distance_point=None,
+                         geo_sort=False):
+        results = super()._process_results(raw_results, highlight,
+                                           result_class, distance_point,
+                                           geo_sort)
+
+        hits = raw_results.get('hits', {}).get('total', {}).get('value', 0)
+        results['hits'] = hits
+
+        return results
 
 class Elasticsearch7SearchQuery(Elasticsearch6SearchQuery):
     pass
