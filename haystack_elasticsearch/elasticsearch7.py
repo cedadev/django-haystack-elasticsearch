@@ -6,11 +6,11 @@ from haystack.backends import BaseEngine
 from haystack.constants import DEFAULT_OPERATOR, DJANGO_CT, DJANGO_ID, ID
 from haystack.exceptions import MissingDependency, SkipDocument
 from haystack.utils import get_identifier, get_model_ct
-from ceda_elasticsearch_tools.elasticsearch import CEDAElasticsearchClient
 import haystack
 from elasticsearch.exceptions import NotFoundError
 from haystack.backends import log_query
 from haystack.models import SearchResult
+from haystack_elasticsearch.utils import get_elasticsearch_client
 
 from haystack_elasticsearch.elasticsearch6 import Elasticsearch6SearchBackend, Elasticsearch6SearchQuery
 
@@ -31,9 +31,9 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
 
     def __init__(self, connection_alias, **connection_options):
         super().__init__(connection_alias, **connection_options)
-        # Modify the connetion to use the CEDA client which handles certificates
-        self.conn = CEDAElasticsearchClient(timeout=self.timeout,
-                                                **connection_options.get('KWARGS', {}))
+
+        # Modify the connection to use the CEDA client which handles certificates
+        self.conn = get_elasticsearch_client(timeout=self.timeout, **connection_options.get('KWARGS', {}))
 
     def setup(self):
         """
@@ -54,7 +54,7 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
         self.content_field_name, field_mapping = self.build_schema(unified_index.all_searchfields())
 
         current_mapping = {
-                'properties': field_mapping,
+            'properties': field_mapping,
         }
 
         if current_mapping != self.existing_mapping:
@@ -328,6 +328,7 @@ class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
         results['hits'] = hits
 
         return results
+
 
 class Elasticsearch7SearchQuery(Elasticsearch6SearchQuery):
     pass
