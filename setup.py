@@ -11,6 +11,11 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'django-haystack>=2.5.1',
+    'ceda-elasticsearch-tools'
+]
+
+dependency_links = [
+    'git+https://github.com/cedadev/ceda-elasticsearch-tools.git@cluster_migration'
 ]
 
 test_requirements = [
@@ -23,8 +28,8 @@ test_requirements = [
 ]
 
 setup(
-    name='django-haystack-elasticsearch',
-    version='0.1.0',
+    name='ceda-django-haystack-elasticsearch',
+    version='2.0.0',
     description="A set of backends for using Elasticsearch on Haystack.",
     long_description=readme + '\n\n' + history,
     author="Bruno Marques",
@@ -37,6 +42,7 @@ setup(
                  'haystack_elasticsearch'},
     include_package_data=True,
     install_requires=requirements,
+    dependency_links=dependency_links,
     license="BSD license",
     zip_safe=False,
     keywords='haystack_elasticsearch',
@@ -45,8 +51,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
