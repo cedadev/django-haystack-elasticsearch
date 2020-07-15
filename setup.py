@@ -15,7 +15,7 @@ requirements = [
 ]
 
 dependency_links = [
-    'git+https://github.com/cedadev/ceda-elasticsearch-tools.git@cluster_migration'
+    'git+https://github.com/cedadev/ceda-elasticsearch-tools.git'
 ]
 
 test_requirements = [
