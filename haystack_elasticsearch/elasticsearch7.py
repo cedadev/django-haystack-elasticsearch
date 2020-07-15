@@ -10,7 +10,7 @@ import haystack
 from elasticsearch.exceptions import NotFoundError
 from haystack.backends import log_query
 from haystack.models import SearchResult
-from haystack_elasticsearch.utils import get_elasticsearch_client
+
 
 from haystack_elasticsearch.elasticsearch6 import Elasticsearch6SearchBackend, Elasticsearch6SearchQuery
 
@@ -28,12 +28,6 @@ except ImportError:
 
 
 class Elasticsearch7SearchBackend(Elasticsearch6SearchBackend):
-
-    def __init__(self, connection_alias, **connection_options):
-        super().__init__(connection_alias, **connection_options)
-
-        # Modify the connection to use the CEDA client which handles certificates
-        self.conn = get_elasticsearch_client(timeout=self.timeout, **connection_options.get('KWARGS', {}))
 
     def setup(self):
         """

@@ -21,6 +21,7 @@ from haystack.utils import get_identifier, get_model_ct
 from haystack.utils.app_loading import haystack_get_model
 
 from haystack_elasticsearch.constants import FUZZY_MAX_EXPANSIONS, FUZZY_MIN_SIM
+from haystack_elasticsearch.utils import get_elasticsearch_client
 
 
 try:
@@ -111,7 +112,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         if not 'INDEX_NAME' in connection_options:
             raise ImproperlyConfigured("You must specify a 'INDEX_NAME' in your settings for connection '%s'." % connection_alias)
 
-        self.conn = elasticsearch.Elasticsearch(connection_options['URL'], timeout=self.timeout, **connection_options.get('KWARGS', {}))
+        self.conn = get_elasticsearch_client(timeout=self.timeout, **connection_options.get('KWARGS', {}))
         self.index_name = connection_options['INDEX_NAME']
         self.log = logging.getLogger('haystack')
         self.setup_complete = False
