@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from setuptools import setup
+from setuptools import find_packages
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -29,17 +30,13 @@ test_requirements = [
 
 setup(
     name='ceda-django-haystack-elasticsearch',
-    version='2.0.0',
+    version='2.0.1',
     description="A set of backends for using Elasticsearch on Haystack.",
     long_description=readme + '\n\n' + history,
     author="Bruno Marques",
     author_email='bruno@cravefood.services',
     url='https://github.com/CraveFood/django-haystack-elasticsearch',
-    packages=[
-        'haystack_elasticsearch',
-    ],
-    package_dir={'haystack_elasticsearch':
-                 'haystack_elasticsearch'},
+    packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
     dependency_links=dependency_links,
@@ -47,7 +44,7 @@ setup(
     zip_safe=False,
     keywords='haystack_elasticsearch',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 5 - Production',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
