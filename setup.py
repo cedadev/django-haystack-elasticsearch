@@ -29,7 +29,7 @@ test_requirements = [
 ]
 
 setup(
-    name='ceda-django-haystack-elasticsearch',
+    name='django-haystack-elasticsearch',
     version='2.0.1',
     description="A set of backends for using Elasticsearch on Haystack.",
     long_description=readme + '\n\n' + history,
