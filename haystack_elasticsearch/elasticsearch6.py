@@ -116,8 +116,6 @@ class Elasticsearch6SearchBackend(ElasticsearchSearchBackend):
                         'field': index.get_facet_fieldname(facet_fieldname),
                     }
                 }
-                if 'order' in extra_options:
-                    facet_options['meta']['order'] = extra_options.pop('order')
                 # Special cases for options applied at the facet level
                 # (not the terms level).
                 if extra_options.pop('global_scope', False):
