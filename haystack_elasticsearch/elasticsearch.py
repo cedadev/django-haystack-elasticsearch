@@ -75,12 +75,12 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
                 },
                 "tokenizer": {
                     "haystack_ngram_tokenizer": {
-                        "type": "nGram",
+                        "type": "ngram",
                         "min_gram": 3,
                         "max_gram": 4,
                     },
                     "haystack_edgengram_tokenizer": {
-                        "type": "edgeNGram",
+                        "type": "edge_ngram",
                         "min_gram": 2,
                         "max_gram": 4,
                         "side": "front"
@@ -88,12 +88,12 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
                 },
                 "filter": {
                     "haystack_ngram": {
-                        "type": "nGram",
+                        "type": "ngram",
                         "min_gram": 3,
                         "max_gram": 4
                     },
                     "haystack_edgengram": {
-                        "type": "edgeNGram",
+                        "type": "edge_ngram",
                         "min_gram": 2,
                         "max_gram": 3
                     }
