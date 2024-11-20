@@ -12,7 +12,7 @@ from haystack.backends import log_query
 from haystack.models import SearchResult
 
 
-from haystack_elasticsearch.elasticsearch7 import Elasticsearch7SearchBackend, Elasticsearch7SearchQuery
+from haystack_elasticsearch.elasticsearch6 import Elasticsearch6SearchBackend, Elasticsearch6SearchQuery
 
 try:
     import elasticsearch
@@ -27,7 +27,7 @@ except ImportError:
                             Please refer to the documentation.")
 
 
-class Elasticsearch8SearchBackend(Elasticsearch7SearchBackend):
+class Elasticsearch8SearchBackend(Elasticsearch6SearchBackend):
 
     def setup(self):
         """
@@ -324,7 +324,7 @@ class Elasticsearch8SearchBackend(Elasticsearch7SearchBackend):
         return results
 
 
-class Elasticsearch8SearchQuery(Elasticsearch7SearchQuery):
+class Elasticsearch8SearchQuery(Elasticsearch6SearchQuery):
     pass
 
 
